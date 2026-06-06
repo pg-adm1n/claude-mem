@@ -24,6 +24,12 @@ function commandHooksFrom(relativePath: string): string[] {
   );
 }
 
+function workerStartCommandsFrom(relativePath: string): string[] {
+  return commandHooksFrom(relativePath).filter(command =>
+    command.includes('worker-service.cjs" start')
+  );
+}
+
 function mcpStartupCommandFrom(relativePath: string): string {
   const parsed = readJson(relativePath);
   return parsed.mcpServers['mcp-search'].args[1];
@@ -92,6 +98,18 @@ describe('Plugin Distribution - Codex Marketplace', () => {
     expect(command).toContain('.codex/plugins/cache/claude-mem-local/claude-mem');
     expect(command).toContain('plugins/cache/thedotmack/claude-mem');
     expect(command).toContain('claude-mem: mcp server not found');
+  });
+});
+
+describe('Plugin Distribution - SessionStart hook stdout discipline', () => {
+  it('silences worker start status JSON so SessionStart emits only hook-contract JSON', () => {
+    const claudeStarts = workerStartCommandsFrom('plugin/hooks/hooks.json');
+    const codexStarts = workerStartCommandsFrom('plugin/hooks/codex-hooks.json');
+
+    expect(claudeStarts).toHaveLength(1);
+    expect(codexStarts).toHaveLength(1);
+    expect(claudeStarts[0]).toContain('worker-service.cjs" start >/dev/null');
+    expect(codexStarts[0]).toContain('worker-service.cjs" start >/dev/null');
   });
 });
 
@@ -250,7 +268,7 @@ const RULE_A_EXPECTATIONS: Record<string, Record<string, string>> = {
       trailingCommand: ['node', '"$_P/scripts/version-check.js"'],
       notFoundMessage: 'claude-mem: version-check.js not found',
     }),
-    'SessionStart.0.0': claudeHook(['start'], { trailingJson: { continue: true, suppressOutput: true } }),
+    'SessionStart.0.0': claudeHook(['start', '>/dev/null'], { trailingJson: { continue: true, suppressOutput: true } }),
     'SessionStart.0.1': claudeHook(['hook', 'claude-code', 'context']),
     'UserPromptSubmit.0.0': claudeHook(['hook', 'claude-code', 'session-init']),
     'PostToolUse.0.0': claudeHook(['hook', 'claude-code', 'observation']),
@@ -263,7 +281,7 @@ const RULE_A_EXPECTATIONS: Record<string, Record<string, string>> = {
       trailingCommand: ['node', '"$_P/scripts/version-check.js"'],
       notFoundMessage: 'claude-mem: version-check.js not found',
     }),
-    'SessionStart.0.1': codexHook(['start']),
+    'SessionStart.0.1': codexHook(['start', '>/dev/null']),
     'SessionStart.0.2': codexHook(['hook', 'codex', 'context']),
     'UserPromptSubmit.0.0': codexHook(['hook', 'codex', 'session-init']),
     'PreToolUse.0.0': codexHook(['hook', 'codex', 'file-context']),
